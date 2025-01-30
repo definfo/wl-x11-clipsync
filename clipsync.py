@@ -164,8 +164,6 @@ def get_x11_clipboard() -> tuple[bytes, str]:
 def set_x11_clipboard(data: bytes, mime: str):
     """
     Write data to X11 clipboard.
-    For text, we publish both UTF8_STRING and STRING (for compatibility).
-    For images or URIs, just once with the appropriate MIME.
 
     Note:
       If you copy an image, and then run 'xclip -o' (without '-t'), you'll likely
@@ -173,19 +171,9 @@ def set_x11_clipboard(data: bytes, mime: str):
       no text target is provided for an image. Use 'xclip -o -t image/png' instead.
     """
     try:
-        if is_text_mime(mime):
-            # Duplicate as UTF8_STRING and STRING
-            subprocess.run(['xclip', '-selection', 'clipboard',
-                            '-t', 'UTF8_STRING'],
-                           input=data, check=True)
-            subprocess.run(['xclip', '-selection', 'clipboard',
-                            '-t', 'STRING'],
-                           input=data, check=True)
-        else:
-            # e.g., image/png or text/uri-list
-            subprocess.run(['xclip', '-selection', 'clipboard',
-                            '-t', mime],
-                           input=data, check=True)
+        subprocess.run(["xclip", "-selection", "clipboard",
+                        "-t", mime],
+                       input=data, chech=True)
     except:
         traceback.print_exc()
 
