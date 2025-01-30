@@ -11,7 +11,6 @@ This Python script synchronizes the clipboard between Wayland (via `wl-copy`/`wl
   - then raw images `image/*`, 
   - and finally `text/plain`.
 - **Text normalization**: removes extra newlines/trailing spaces to avoid duplicate triggers (especially from Firefox).
-- **Dual publishing** of text to X11: `UTF8_STRING` and `STRING`, so old X11 apps or `xclip -o` without options won't fail.
 - **No polling**: uses `clipnotify` to react to clipboard events. 
 
 ## Requirements
