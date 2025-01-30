@@ -173,7 +173,7 @@ def set_x11_clipboard(data: bytes, mime: str):
     try:
         subprocess.run(["xclip", "-selection", "clipboard",
                         "-t", mime],
-                       input=data, chech=True)
+                       input=data, check=True)
     except:
         traceback.print_exc()
 
