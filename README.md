@@ -1,6 +1,6 @@
 # Wayland ↔ X11 Clipboard Sync
 
-This Python script synchronizes the clipboard between Wayland (via `wl-copy`/`wl-paste`) and X11 (via `xclip`). It listens for clipboard changes using `clipnotify` and automatically transfers new data from one side to the other, handling text, HTML, images, and file URIs.
+This Haskell script synchronizes the clipboard between Wayland (via `wl-copy`/`wl-paste`) and X11 (via `xclip`). It listens for clipboard changes using `clipnotify` and automatically transfers new data from one side to the other, handling text, HTML, images, and file URIs.
 
 ## Features
 
@@ -15,20 +15,15 @@ This Python script synchronizes the clipboard between Wayland (via `wl-copy`/`wl
 
 ## Requirements
 
-Make sure you have the following installed:
-
-- `wl-clipboard` (provides `wl-copy` and `wl-paste`)
-- `xclip`
-- `clipnotify`
-- A Python 3 environment
+This script only requires `Nix` to be installed.
 
 ## Usage
 
-1. Clone or download the `clipsync.py` script.
-2. Make it executable:
-`chmod +x clipsync.py`
+1. Clone or download the `clipsync.hs` script.
+2. Make it executable if not:
+`chmod +x clipsync.hs`
 3. Run it in a terminal or background process:
-`./clipsync.py`
+`./clipsync.hs`
 
 Now, whenever you copy something in a Wayland-native app, the same data becomes available to X11 apps, and vice versa.
 
