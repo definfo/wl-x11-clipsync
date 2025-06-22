@@ -1,4 +1,4 @@
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -30,16 +30,16 @@ data DisplayServer = Wayland | X11
     deriving (Show, Eq)
 
 data ClipMethod = Get | Set
+    deriving (Enum)
 
 instance Show ClipMethod where
-    show :: ClipMethod -> String
     show Get = "getting"
     show Set = "setting"
 
 getClipName :: DisplayServer -> ClipMethod -> Text
-getClipName Wayland Get = T.pack "wl-paste"
-getClipName Wayland Set = T.pack "wl-copy"
-getClipName X11 _ = T.pack "xclip"
+getClipName Wayland Get = "wl-paste"
+getClipName Wayland Set = "wl-copy"
+getClipName X11 _ = "xclip"
 
 -- Decode bytes to UTF-8 string safely (replace errors).
 decode :: ByteString -> Text
@@ -53,9 +53,9 @@ normalize = encodeUtf8 . strip . decode
 -- Check if the MIME type indicates textual data.
 isTextMime :: Text -> Bool
 isTextMime text =
-    T.pack "text/" `isPrefixOf` text
-        || text == T.pack "UTF8_STRING"
-        || text == T.pack "STRING"
+    "text/" `isPrefixOf` text
+        || text == "UTF8_STRING"
+        || text == "STRING"
 
 -- Get the list of MIME types from the Wayland/X11 clipboard.
 getTargets :: DisplayServer -> IO [Text]
@@ -86,25 +86,25 @@ getMime server = do
     pickMime :: [Text] -> Text
     pickMime targets
         -- 1) text/uri-list
-        | T.pack "text/uri-list" `elem` targets = T.pack "text/uri-list"
+        | "text/uri-list" `elem` targets = "text/uri-list"
         -- 2) text/html
-        | T.pack "text/html" `elem` targets = T.pack "text/html"
+        | "text/html" `elem` targets = "text/html"
         -- 3) image/*
         | Just imageMime <- findImageMime targets = imageMime
         -- 4) text/plain;charset=utf-8
-        | T.pack "text/plain;charset=utf-8" `elem` targets =
-            T.pack "text/plain;charset=utf-8"
+        | "text/plain;charset=utf-8" `elem` targets =
+            "text/plain;charset=utf-8"
         -- 5) text/plain
-        | T.pack "text/plain" `elem` targets = T.pack "text/plain"
+        | "text/plain" `elem` targets = "text/plain"
         -- 6) fallback
-        | T.pack "UTF8_STRING" `elem` targets = T.pack "UTF8_STRING"
+        | "UTF8_STRING" `elem` targets = "UTF8_STRING"
         -- default fallback
-        | otherwise = T.pack "text/plain;charset=utf-8"
+        | otherwise = "text/plain;charset=utf-8"
 
     findImageMime :: [Text] -> Maybe Text
     findImageMime [] = Nothing
     findImageMime (t : ts)
-        | T.pack "image/" `isPrefixOf` t = Just t
+        | "image/" `isPrefixOf` t = Just t
         | otherwise = findImageMime ts
 
 -- Unwrap result from readCreateProcessWithExitCode
@@ -156,7 +156,7 @@ setClip :: DisplayServer -> ByteString -> Text -> IO ()
 setClip server rawData mime = do
     let chosenMime =
             if server == Wayland && isTextMime mime
-                then T.pack "text/plain;charset=utf-8"
+                then "text/plain;charset=utf-8"
                 else mime
     let p = case server of
             Wayland -> proc "wl-copy" ["-t", T.unpack chosenMime]

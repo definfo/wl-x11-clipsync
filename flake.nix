@@ -81,9 +81,9 @@
           treefmt.settings.global.excludes = [ ];
 
           treefmt.programs = {
-            cabal-fmt = {
+            cabal-gild = {
               enable = true;
-              package = basePackages.cabal-fmt;
+              package = basePackages.cabal-gild;
             };
             deadnix.enable = true;
             fourmolu = {

@@ -6,10 +6,7 @@ indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{hs,lhs}]
-indent_size = 4
-
-[*.cabal]
+[*.{hs,lhs,cabal}]
 indent_size = 2
 
 [*.nix]
