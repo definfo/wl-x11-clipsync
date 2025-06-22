@@ -26,6 +26,6 @@ fi
 } >"$OUTPUT_FILE"
 
 cat "$SOURCE_FILE" >>"$OUTPUT_FILE"
-chmod +x clipsync.hs
+chmod +x "$OUTPUT_FILE"
 
-echo "Created executable '$OUTPUT_FILE'"
+printf '%s\n' "Created executable '$OUTPUT_FILE'"

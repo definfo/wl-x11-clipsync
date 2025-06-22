@@ -52,6 +52,16 @@
             # You may also create your own. See https://community.flake.parts/haskell-flake/package-set
             inherit basePackages;
 
+            settings = {
+              clipsync = {
+                extraBuildDepends = with pkgs; [
+                  xclip
+                  wl-clipboard
+                  clipnotify
+                ];
+              };
+            };
+
             # Extra package information. See https://community.flake.parts/haskell-flake/dependency
             #
             # Note that local packages are automatically included in `packages`

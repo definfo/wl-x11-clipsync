@@ -18,7 +18,7 @@ name: clipsync
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version: 0.1.0.1
+version: 0.1.0.2
 -- A short (one-line) description of the package.
 synopsis:
   Haskell script to synchronize the clipboard between Wayland and X11. Rewrite of https://github.com/arabianq/wl-x11-clipsync.
@@ -58,9 +58,9 @@ executable clipsync
   -- other-extensions:
   -- Other library packages from which modules are imported.
   build-depends:
-    base ^>=4.19.2.0,
-    bytestring ^>=0.12.1.0,
-    process ^>=1.6.26.1,
+    base ^>=4.19.2,
+    bytestring ^>=0.12.1,
+    process ^>=1.6.25,
     process-extras ^>=0.7.4,
     text ^>=2.1.1,
 
