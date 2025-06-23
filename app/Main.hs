@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
 
+import Control.Concurrent.MVar
 import Control.Exception (IOException, try)
-import Control.Monad (when)
+import Control.Monad (forever, when)
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
@@ -17,19 +17,37 @@ import Data.Text.Encoding.Error (lenientDecode)
 
 import Data.List (nub)
 
+import System.Environment (lookupEnv)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
+import System.IO.Unsafe (unsafePerformIO)
 
 import System.Process (callCommand, proc)
-import System.Process.ByteString (readCreateProcessWithExitCode) -- process-extras
+import System.Process.ByteString (readCreateProcessWithExitCode)
+
+-- This checks for the "CLIPSYNC_DEBUG" environment variable when the program starts.
+-- It's a global constant, so the IO action is performed only once.
+{-# NOINLINE isDebug #-}
+isDebug :: Bool
+isDebug = unsafePerformIO $ do
+    val <- lookupEnv "CLIPSYNC_DEBUG"
+    return (val == Just "1" || val == Just "true")
+
+-- A helper function for printing debug messages.
+dbg :: String -> IO ()
+dbg msg = when isDebug $ putStrLn msg
 
 {-----------------------------------------------------------------------------
 -                           Utility Functions
 -----------------------------------------------------------------------------}
 
-data DisplayServer = Wayland | X11
+data DisplayServer
+    = Wayland
+    | X11
     deriving (Show, Eq)
 
-data ClipMethod = Get | Set
+data ClipMethod
+    = Get
+    | Set
     deriving (Enum)
 
 instance Show ClipMethod where
@@ -115,7 +133,6 @@ getMime server = do
 -- retf : return statement when process failed
 -- rets : return statement when process succeeded
 unwrapResult ::
-    forall a.
     DisplayServer ->
     ClipMethod ->
     Either IOException (ExitCode, ByteString, ByteString) ->
@@ -175,10 +192,6 @@ setClip server rawData mime = do
 -                  Wayland Clipboard (wl-copy / wl-paste)
 -----------------------------------------------------------------------------}
 
--- Get the list of MIME types from the Wayland clipboard.
-getWlTargets :: IO [Text]
-getWlTargets = getTargets Wayland
-
 -- Return (raw_data, mime) from Wayland clipboard.
 getWlClip :: IO (ByteString, Text)
 getWlClip = getClip Wayland
@@ -192,10 +205,6 @@ setWlClip = setClip Wayland
 {-----------------------------------------------------------------------------
 -                  X11 Clipboard (xclip)
 -----------------------------------------------------------------------------}
-
--- Get the list of MIME types from the X11 clipboard.
-getX11Targets :: IO [Text]
-getX11Targets = getTargets X11
 
 -- Return (raw_data, mime) from Wayland clipboard.
 getX11Clip :: IO (ByteString, Text)
@@ -213,71 +222,77 @@ setX11Clip = setClip X11
 -                            Main Loop
 -----------------------------------------------------------------------------}
 
-loop :: (ByteString, Text) -> (ByteString, Text) -> IO ()
-loop (lastWlData, lastWlMime) (lastXData, lastXMime) = do
-    -- clipnotify will wake up on any clipboard change
-    -- FIXME:
-    -- this method should block
-    -- thus wait for return
+-- Represents the last known state of the clipboards.
+data ClipStat = ClipStat
+    { lastWlData :: ByteString
+    , lastWlMime :: Text
+    , lastXData :: ByteString
+    , lastXMime :: Text
+    }
+    deriving (Show)
+
+-- Performs a single sync operation.
+sync :: MVar ClipStat -> IO ()
+sync stateVar = do
     _ <- callCommand "clipnotify"
 
-    -- Read both clipboards
+    oldState <- readMVar stateVar
+
     (wlRaw, wlMime) <- getWlClip
     (xRaw, xMime) <- getX11Clip
 
-    -- Skip processing if both clipboards are empty
-    when (wlRaw == B.empty && xRaw == B.empty) $ do
-        loop (lastWlData, lastWlMime) (lastXData, lastXMime)
+    let wlNorm = if isTextMime wlMime then normalize wlRaw else wlRaw
+    let xNorm = if isTextMime xMime then normalize xRaw else xRaw
 
-    -- Normalize text data to reduce duplicates
-    let wlNorm =
-            if isTextMime wlMime && wlRaw /= B.empty
-                then normalize wlRaw
-                else wlRaw
+    let wlChanged = wlNorm /= lastWlData oldState
+    let xChanged = xNorm /= lastXData oldState
 
-    let xNorm =
-            if isTextMime xMime && xRaw /= B.empty
-                then normalize xRaw
-                else xRaw
+    -- Based on which clipboard changed, decide on the action and the new state.
+    let (newState, syncAction) = case (wlChanged, xChanged) of
+            (True, False) ->
+                -- Wayland changed, sync to X11.
+                let action = do
+                        putStrLn $ "[Wayland -> X11] MIME=" ++ T.unpack wlMime
+                        setX11Clip wlNorm wlMime
+                    state = ClipStat wlNorm wlMime wlNorm wlMime
+                in  (state, action)
+            (False, True) ->
+                -- X11 changed, sync to Wayland.
+                let action = do
+                        putStrLn $ "[X11 -> Wayland] MIME=" ++ T.unpack xMime
+                        setWlClip xNorm xMime
+                    state = ClipStat xNorm xMime xNorm xMime
+                in  (state, action)
+            (True, True) ->
+                -- Both changed, prefer Wayland as source of truth.
+                -- TODO: add a dbg pretty print here to display states
+                let action = do
+                        dbg $ "[Debug] Conflict. Old state: " ++ show oldState
+                        putStrLn $
+                            "[Conflict] Both changed. Preferring Wayland -> X11 (MIME="
+                                ++ T.unpack wlMime
+                                ++ ")"
+                        setX11Clip wlNorm wlMime
+                    state = ClipStat wlNorm wlMime wlNorm wlMime
+                in  (state, action)
+            (False, False) ->
+                -- Nothing changed, no sync action needed.
+                -- The new state is the current state, which should be the same as the old state.
+                (oldState, return ())
 
-    let wlChanged = wlNorm /= B.empty && wlNorm /= lastWlData
-        xChanged = xNorm /= B.empty && xNorm /= lastXData
-
-    case (wlChanged, xChanged) of
-        (True, False) -> do
-            -- Wayland changed
-            when (wlNorm /= lastXData) $ do
-                putStrLn $ "[Wayland -> X11] MIME=" ++ T.unpack wlMime
-                setX11Clip wlNorm wlMime
-            loop (wlNorm, wlMime) (wlNorm, wlMime)
-        (False, True) -> do
-            -- X11 changed
-            when (xNorm /= lastWlData) $ do
-                putStrLn $ "[X11 -> Wayland] MIME=" ++ T.unpack xMime
-                setWlClip xNorm xMime
-            loop (xNorm, xMime) (xNorm, xMime)
-        (True, True) -> do
-            -- Both changed - pick Wayland priority
-            putStrLn $
-                "[Conflict] Both changed. Preferring Wayland -> X11 (MIME="
-                    ++ T.unpack wlMime
-                    ++ ")"
-            when (wlNorm /= lastXData) $ do
-                setX11Clip wlNorm wlMime
-            loop (wlNorm, wlMime) (wlNorm, wlMime)
-        (False, False) -> do
-            let wlNonEmpty = wlNorm /= B.empty
-                xNonEmpty = xNorm /= B.empty
-            case (wlNonEmpty, xNonEmpty) of
-                (True, _) -> loop (wlNorm, wlMime) (wlNorm, wlMime)
-                (_, True) -> loop (xNorm, xMime) (xNorm, xMime)
-                _ -> loop (lastWlData, lastWlMime) (lastXData, lastXMime)
+    -- Execute the sync action and then update the state.
+    syncAction
+    _ <- swapMVar stateVar newState
+    return ()
 
 run :: IO ()
 run = do
-    putStrLn "Starting Wayland ↔ X11 clipboard sync..."
-    -- Initialize with current clipboard contents to avoid initial sync
-    loop (B.empty, T.empty) (B.empty, T.empty)
+    putStrLn "Starting Wayland <---> X11 clipboard sync..."
+    -- Initialize with an empty state.
+    let initialState = ClipStat B.empty T.empty B.empty T.empty
+    stateVar <- newMVar initialState
+    -- Loop forever, syncing on each change.
+    forever $ sync stateVar
 
 main :: IO ()
 main = run

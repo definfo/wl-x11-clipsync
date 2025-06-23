@@ -53,13 +53,29 @@
             inherit basePackages;
 
             settings = {
-              clipsync = {
-                extraBuildDepends = with pkgs; [
-                  xclip
-                  wl-clipboard
-                  clipnotify
-                ];
-              };
+              # clipsync = {
+              #   # This module can take `{self, super, ...}` args, optionally.
+              #   # Disable running tests
+              #   check = false;
+
+              #   # Disable building haddock (documentation)
+              #   haddock = false;
+
+              #   # Ignore Cabal version constraints
+              #   jailbreak = true;
+
+              #   # Extra non-Haskell dependencies
+              #   extraBuildDepends = [ pkgs.stork ];
+
+              #   # Source patches
+              #   patches = [ ./patches/ema-bug-fix.patch ];
+
+              #   # Enable/disable Cabal flags
+              #   cabalFlags.with-generics = true;
+
+              #   # Allow building a package marked as "broken"
+              #   broken = false;
+              # };
             };
 
             # Extra package information. See https://community.flake.parts/haskell-flake/dependency

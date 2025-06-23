@@ -15,10 +15,11 @@ name: clipsync
 -- See the Haskell package versioning policy (PVP) for standards
 -- guiding when and how versions should be incremented.
 -- https://pvp.haskell.org
--- PVP summary:     +-+------- breaking API changes
---                  | | +----- non-breaking API additions
---                  | | | +--- code changes with no API change
-version: 0.1.0.2
+-- PVP summary:
+--       +-+------- breaking API changes
+--       | | +----- non-breaking API additions
+--       | | | +--- code changes with no API change
+version: 0.1.1.0
 -- A short (one-line) description of the package.
 synopsis:
   Haskell script to synchronize the clipboard between Wayland and X11. Rewrite of https://github.com/arabianq/wl-x11-clipsync.
