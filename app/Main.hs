@@ -3,7 +3,12 @@
 
 module Main where
 
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar (
+    MVar,
+    newMVar,
+    readMVar,
+    swapMVar,
+ )
 import Control.Exception (IOException, try)
 import Control.Monad (forever, when)
 
@@ -15,17 +20,20 @@ import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With, encodeUtf8)
 import Data.Text.Encoding.Error (lenientDecode)
 
-import Data.List (nub)
+import Data.List (find)
+import Data.Maybe (fromMaybe)
+import Data.Set (Set)
+import qualified Data.Set as S
 
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.IO.Unsafe (unsafePerformIO)
 
+import Control.Applicative ((<|>))
 import System.Process (callCommand, proc)
 import System.Process.ByteString (readCreateProcessWithExitCode)
 
--- This checks for the "CLIPSYNC_DEBUG" environment variable when the program starts.
--- It's a global constant, so the IO action is performed only once.
+-- Enable debug pretty print with `CLIPSYNC_DEBUG=1 cabal run`
 {-# NOINLINE isDebug #-}
 isDebug :: Bool
 isDebug = unsafePerformIO $ do
@@ -43,7 +51,7 @@ dbg msg = when isDebug $ putStrLn msg
 data DisplayServer
     = Wayland
     | X11
-    deriving (Show, Eq)
+    deriving (Enum, Show, Eq)
 
 data ClipMethod
     = Get
@@ -76,18 +84,18 @@ isTextMime text =
         || text == "STRING"
 
 -- Get the list of MIME types from the Wayland/X11 clipboard.
-getTargets :: DisplayServer -> IO [Text]
+getTargets :: DisplayServer -> IO (Set Text)
 getTargets server = do
     let p = case server of
             Wayland -> proc "wl-paste" ["-l"]
             X11 -> proc "xclip" ["-selection", "clipboard", "-o", "-t", "TARGETS"]
     result <- try @IOException $ readCreateProcessWithExitCode p B.empty
     case result of
-        Left _ -> return []
+        Left _ -> return S.empty
         Right (exitCode, stdout, _) ->
             case exitCode of
-                ExitSuccess -> return $ T.lines $ decode stdout
-                ExitFailure _ -> return []
+                ExitSuccess -> return $ S.fromList $ T.lines $ decode stdout
+                ExitFailure _ -> return S.empty
 
 -- MIME priority (Wayland <→ X11):
 -- 1) text/uri-list       (file lists)
@@ -99,31 +107,22 @@ getTargets server = do
 getMime :: DisplayServer -> IO Text
 getMime server = do
     targets <- getTargets server
-    return $ pickMime $ nub targets
+    return $ pickMime targets
   where
-    pickMime :: [Text] -> Text
-    pickMime targets
-        -- 1) text/uri-list
-        | "text/uri-list" `elem` targets = "text/uri-list"
-        -- 2) text/html
-        | "text/html" `elem` targets = "text/html"
-        -- 3) image/*
-        | Just imageMime <- findImageMime targets = imageMime
-        -- 4) text/plain;charset=utf-8
-        | "text/plain;charset=utf-8" `elem` targets =
-            "text/plain;charset=utf-8"
-        -- 5) text/plain
-        | "text/plain" `elem` targets = "text/plain"
-        -- 6) fallback
-        | "UTF8_STRING" `elem` targets = "UTF8_STRING"
-        -- default fallback
-        | otherwise = "text/plain;charset=utf-8"
+    pickMime :: Set Text -> Text
+    pickMime targets =
+        fromMaybe "text/plain;charset=utf-8" $
+            find (`S.member` targets) mimePreferences
+                <|> find ("image/" `isPrefixOf`) (S.toList targets)
 
-    findImageMime :: [Text] -> Maybe Text
-    findImageMime [] = Nothing
-    findImageMime (t : ts)
-        | "image/" `isPrefixOf` t = Just t
-        | otherwise = findImageMime ts
+    mimePreferences :: [Text]
+    mimePreferences =
+        [ "text/uri-list"
+        , "text/html"
+        , "text/plain;charset=utf-8"
+        , "text/plain"
+        , "UTF8_STRING"
+        ]
 
 -- Unwrap result from readCreateProcessWithExitCode
 -- args:

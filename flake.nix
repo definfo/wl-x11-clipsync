@@ -15,7 +15,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-root.url = "github:srid/flake-root";
-    mission-control.url = "github:Platonic-Systems/mission-control";
   };
   outputs =
     inputs@{
@@ -30,7 +29,6 @@
         inputs.treefmt-nix.flakeModule
         inputs.pre-commit-hooks.flakeModule
         inputs.flake-root.flakeModule
-        inputs.mission-control.flakeModule
       ];
 
       perSystem =
@@ -53,29 +51,33 @@
             inherit basePackages;
 
             settings = {
-              # clipsync = {
-              #   # This module can take `{self, super, ...}` args, optionally.
-              #   # Disable running tests
-              #   check = false;
+              clipsync = {
+                # This module can take `{self, super, ...}` args, optionally.
+                # Disable running tests
+                # check = false;
 
-              #   # Disable building haddock (documentation)
-              #   haddock = false;
+                # Disable building haddock (documentation)
+                # haddock = false;
 
-              #   # Ignore Cabal version constraints
-              #   jailbreak = true;
+                # Ignore Cabal version constraints
+                # jailbreak = true;
 
-              #   # Extra non-Haskell dependencies
-              #   extraBuildDepends = [ pkgs.stork ];
+                # Extra non-Haskell dependencies
+                extraBuildDepends = with pkgs; [
+                  clipnotify
+                  xclip
+                  wl-clipboard
+                ];
 
-              #   # Source patches
-              #   patches = [ ./patches/ema-bug-fix.patch ];
+                # Source patches
+                # patches = [ ./patches/ema-bug-fix.patch ];
 
-              #   # Enable/disable Cabal flags
-              #   cabalFlags.with-generics = true;
+                # Enable/disable Cabal flags
+                # cabalFlags.with-generics = true;
 
-              #   # Allow building a package marked as "broken"
-              #   broken = false;
-              # };
+                # Allow building a package marked as "broken"
+                # broken = false;
+              };
             };
 
             # Extra package information. See https://community.flake.parts/haskell-flake/dependency
@@ -116,6 +118,7 @@
               enable = true;
               package = basePackages.fourmolu;
             };
+            just.enable = true;
             hlint = {
               enable = true;
               package = basePackages.hlint;
@@ -134,46 +137,15 @@
             treefmt.enable = true;
           };
 
-          # Devshell scripts.
-          mission-control.scripts = {
-            docs = {
-              description = "Start Hoogle server for project dependencies";
-              exec = ''
-                echo http://127.0.0.1:8888
-                hoogle serve -p 8888 --local
-              '';
-              category = "Dev Tools";
-            };
-            repl = {
-              description = "Start the cabal repl";
-              exec = ''
-                cabal repl "$@"
-              '';
-              category = "Dev Tools";
-            };
-            fmt = {
-              description = "Format the source tree";
-              exec = config.treefmt.build.wrapper;
-              category = "Dev Tools";
-            };
-            run = {
-              description = "Run the project with ghcid auto-recompile";
-              exec = ''
-                cabal exec -- ghcid -c "cabal repl exe:clipsync" --warnings -T :main
-              '';
-              category = "Primary";
-            };
-          };
-
           packages.default = self'.packages.clipsync;
           apps.default = self'.apps.clipsync;
 
           devShells.default = pkgs.mkShell {
             inputsFrom = [
               config.haskellProjects.default.outputs.devShell
+              config.treefmt.build.devShell
               config.pre-commit.devShell
               config.flake-root.devShell
-              config.mission-control.devShell
             ];
             packages = with pkgs; [
               xclip
