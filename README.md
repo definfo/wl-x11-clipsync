@@ -2,6 +2,11 @@
 
 This Haskell script synchronizes the clipboard between Wayland (via `wl-copy`/`wl-paste`) and X11 (via `xclip`). It listens for clipboard changes using `clipnotify` and automatically transfers new data from one side to the other, handling text, HTML, images, and file URIs.
 
+## SECURITY NOTE
+
+Currently we have not implemented any security checks for clipped content. Note
+that this may be utilized by malware on the X11 side.
+
 ## Features
 
 - **Automatic two-way sync** between Wayland and X11 clipboards.
