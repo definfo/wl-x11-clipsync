@@ -57,17 +57,13 @@
                 # check = false;
 
                 # Disable building haddock (documentation)
-                # haddock = false;
+                haddock = false;
 
                 # Ignore Cabal version constraints
                 # jailbreak = true;
 
-                # Extra non-Haskell dependencies
-                extraBuildDepends = with pkgs; [
-                  clipnotify
-                  xclip
-                  wl-clipboard
-                ];
+                # Extra non-Haskell tools/dependencies
+                extraBuildTools = with pkgs; [ makeWrapper ];
 
                 # Source patches
                 # patches = [ ./patches/ema-bug-fix.patch ];
@@ -77,6 +73,24 @@
 
                 # Allow building a package marked as "broken"
                 # broken = false;
+
+                drvAttrs = {
+                  postFixup = ''
+                    wrapProgram $out/bin/clipsync \
+                      --set PATH ${
+                        pkgs.lib.makeBinPath (
+                          with pkgs;
+                          [
+                            clipnotify
+                            xclip
+                            wl-clipboard
+                          ]
+                        )
+                      }
+                  '';
+                };
+
+                justStaticExecutables = true;
               };
             };
 
@@ -131,6 +145,7 @@
           # https://flake.parts/options/git-hooks-nix.html
           # Example: https://github.com/cachix/git-hooks.nix/blob/master/template/flake.nix
           pre-commit.settings.excludes = [ ];
+          pre-commit.settings.package = pkgs.prek;
           pre-commit.settings.hooks = {
             commitizen.enable = true;
             eclint.enable = true;

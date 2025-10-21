@@ -61,12 +61,12 @@ executable clipsync
   -- other-extensions:
   -- Other library packages from which modules are imported.
   build-depends:
-    base ^>=4.19.2,
-    bytestring ^>=0.12.1,
-    containers ^>=0.6.8,
-    process ^>=1.6.25,
-    process-extras ^>=0.7.4,
-    text ^>=2.1.1,
+    base >=4.19.2,
+    bytestring >=0.12.1,
+    containers >=0.6.8,
+    process >=1.6.25,
+    process-extras >=0.7.4,
+    text >=2.1.1,
 
   -- Directories containing source files.
   hs-source-dirs: app
